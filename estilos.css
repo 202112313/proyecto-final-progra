@@ -1,0 +1,62 @@
+        /* Estilos personalizados para la paleta de colores neón morado y negro */
+        body {
+            background-color: #000000; /* Negro puro */
+            color: #E0E0E0; /* Gris claro para texto general */
+        }
+
+        /* Colores neón morado */
+        .text-purple-500 { color: #A700FF; } /* Morado neón */
+        .bg-purple-500 { background-color: #A700FF; }
+        .hover\:bg-purple-600:hover { background-color: #8A00D4; } /* Morado neón más oscuro al hover */
+        .hover\:text-purple-500:hover { color: #A700FF; }
+
+        /* Gradiente para el hero section */
+        .hero-gradient {
+            background: linear-gradient(135deg, #1A0033 0%, #330066 100%); /* Tonos oscuros de morado */
+        }
+
+        /* Estilos para elementos interactivos */
+        .commodity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(167, 0, 255, 0.2); /* Sombra con color neón */
+        }
+
+        .news-card:hover {
+            box-shadow: 0 5px 15px rgba(167, 0, 255, 0.2); /* Sombra con color neón */
+        }
+
+        /* Ajustes para el mapa (z-index para que los popups no se oculten) */
+        #productionMap {
+            height: 500px;
+            z-index: 1; /* Asegura que el mapa esté por encima de otros elementos si hay superposiciones */
+        }
+
+        /* Estilos para la tabla */
+        .bg-gray-800 { background-color: #1A1A1A; } /* Negro muy oscuro */
+        .bg-gray-700 { background-color: #2A2A2A; } /* Gris oscuro */
+        .divide-gray-700 { border-color: #3A3A3A; } /* Líneas divisorias más claras */
+        .text-gray-300 { color: #C0C0C0; } /* Texto en tablas */
+        .text-gray-500 { color: #808080; } /* Texto secundario en tablas */
+
+        /* Colores para cambios de precio */
+        .text-green-400 { color: #00FF00; } /* Verde neón */
+        .text-red-500 { color: #FF0000; } /* Rojo brillante */
+
+        /* Botones de tiempo en gráficos */
+        .bg-gray-700 { background-color: #2A2A2A; }
+        .text-gray-300 { color: #C0C0C0; }
+        .bg-purple-500 { background-color: #A700FF; }
+        .hover\:bg-purple-600:hover { background-color: #8A00D4; }
+
+        /* Fondo para resultados de simulación */
+        .bg-purple-900-opacity {
+            background-color: rgba(167, 0, 255, 0.1); /* Morado neón con transparencia */
+        }
+
+        /* Estilos para las secciones/páginas */
+        .page-section {
+            display: none; /* Oculta todas las secciones por defecto */
+        }
+        .page-section.active {
+            display: block; /* Muestra la sección activa */
+        }
