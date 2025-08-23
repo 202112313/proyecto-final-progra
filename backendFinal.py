@@ -4,18 +4,44 @@ from datetime import datetime, timedelta
 import random
 import smtplib
 from email.mime.text import MIMEText
-from flask_cors import CORS # Para permitir que tu frontend (en otro puerto) se conecte
+from flask_cors import CORS 
+import mysql.connector
+import requests # Importar la librería requests
 
 app = Flask(__name__)
-CORS(app) # Habilita CORS para todas las rutas, necesario para el frontend
+CORS(app) 
 
-# --- SIMULACIÓN DE BASE DE DATOS EN MEMORIA ---
-# Estos datos se reinician cada vez que el servidor se detiene y se inicia.
+# --- Configuración de la Base de Datos MySQL ---
+# Asegúrate de que tu base de datos MySQL esté corriendo y las credenciales sean correctas.
+try:
+    db = mysql.connector.connect(
+        host="localhost",
+        user="root",           
+        password="12345678duvanm",     
+        database="ProyectoBootcamp" 
+    )
+    cursor = db.cursor(dictionary=True)
+    print("Conexión a la base de datos MySQL exitosa.")
+except mysql.connector.Error as err:
+    print(f"Error al conectar a la base de datos MySQL: {err}")
+    # Puedes decidir si la aplicación debe salir o continuar con funcionalidad limitada
+    db = None
+    cursor = None
+         
+# --- Clave API de Alpha Vantage ---
+# ¡IMPORTANTE! Reemplaza 'YOUR_ALPHA_VANTAGE_API_KEY' con tu clave real.
+ALPHA_VANTAGE_API_KEY = "B6WLT43VEKA4J6RW"
 
-# Datos de usuarios (simulados)
-users_db = {} # {email: {username, password_hash}}
+# Mapeo de tus claves de commodities a los símbolos de Alpha Vantage
+alpha_vantage_symbols = {
+    "oro": "GOLD",
+    "petroleo": "WTI", # West Texas Intermediate, un crudo de referencia
+    "cobre": "COPPER", # Puede que Alpha Vantage no tenga un GLOBAL_QUOTE directo para COPPER.
+                        # Si falla, considera usar un ETF de cobre o una función diferente de AV.
+    "plata": "SILVER"
+}
 
-# Datos de commodities (simulados)
+# --- Datos de commodities (simulados, se actualizarán con Alpha Vantage si es posible) ---
 commodities_db = {
     "oro": {
         "id": 1,
@@ -135,14 +161,45 @@ mining_locations_db = [
     {"name": "Mina de Sal Zipaquirá", "position": [5.025, -74.005], "production": "low", "type": "Sal"}
 ]
 
-# --- Configuración de Correo Electrónico (para simulación) ---
-# Para un envío real, necesitarías configurar un servidor SMTP o usar un servicio como SendGrid.
-# Estas son variables de entorno que deberías definir en un archivo .env si las usas realmente.
-# SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.example.com')
-# SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
-# SMTP_USERNAME = os.getenv('SMTP_USERNAME', 'your_email@example.com')
-# SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'your_email_password')
-# SENDER_EMAIL = os.getenv('SENDER_EMAIL', 'no-reply@commoditytrader.com')
+# --- Base de datos de usuarios simulada (para registro/login) ---
+users_db = {} # Inicializar como un diccionario vacío
+
+# --- Funciones auxiliares para Alpha Vantage ---
+def get_alpha_vantage_quote(av_symbol):
+    """
+    Obtiene la cotización global de un símbolo de Alpha Vantage.
+    Retorna un diccionario con los datos o None si falla.
+    """
+    url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={av_symbol}&apikey={ALPHA_VANTAGE_API_KEY}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status() # Lanza un error para códigos de estado HTTP malos (4xx o 5xx)
+        data = response.json()
+
+        if "Global Quote" in data:
+            quote = data["Global Quote"]
+            return {
+                "current_price": float(quote.get('05. price')),
+                "change": float(quote.get('09. change')),
+                "change_amount": float(quote.get('09. change')), # Alpha Vantage solo da 'change', no 'change_amount' directo
+                "high": float(quote.get('03. high')),
+                "low": float(quote.get('04. low'))
+            }
+        elif "Error Message" in data:
+            print(f"Error de Alpha Vantage para {av_symbol}: {data['Error Message']}")
+            return None
+        elif "Note" in data:
+            print(f"Nota de Alpha Vantage (límite de API?): {data['Note']}")
+            return None
+        else:
+            print(f"Respuesta inesperada de Alpha Vantage para {av_symbol}: {data}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión con Alpha Vantage para {av_symbol}: {e}")
+        return None
+    except (ValueError, TypeError) as e:
+        print(f"Error al procesar datos de Alpha Vantage para {av_symbol}: {e}")
+        return None
 
 # --- Rutas de la API ---
 
@@ -154,36 +211,80 @@ def home():
 @app.route('/api/commodities', methods=['GET'])
 def get_commodities():
     """
-    Retorna una lista de todas las commodities disponibles con sus datos actuales.
+    Retorna una lista de todas las commodities disponibles con sus datos actuales,
+    intentando obtener precios en tiempo real de Alpha Vantage como primera opción.
     """
     commodities_list = []
     for key, data in commodities_db.items():
-        # Crear una copia para no modificar el original y añadir solo datos relevantes
-        commodity_info = {
-            "key": key, # Añadir la clave para fácil referencia en el frontend
-            "name": data["name"],
-            "symbol": data["symbol"],
-            "icon_url": data["icon_url"],
-            "current_price": data["current_price"],
-            "change": data["change"],
-            "high": data["high"],
-            "low": data["low"]
-        }
-        commodities_list.append(commodity_info)
+        commodity_info = data.copy() # Copia los datos simulados
+        
+        # Intentar obtener datos en tiempo real de Alpha Vantage
+        av_symbol = alpha_vantage_symbols.get(key)
+        if av_symbol:
+            realtime_data = get_alpha_vantage_quote(av_symbol)
+            if realtime_data:
+                # Actualizar los campos con los datos de Alpha Vantage
+                commodity_info["current_price"] = realtime_data["current_price"]
+                commodity_info["change"] = realtime_data["change"]
+                commodity_info["change_amount"] = realtime_data["change_amount"]
+                commodity_info["high"] = realtime_data["high"]
+                commodity_info["low"] = realtime_data["low"]
+                print(f"Datos de {key} actualizados con Alpha Vantage.")
+            else:
+                print(f"No se pudieron obtener datos de Alpha Vantage para {key}. Usando datos simulados.")
+        else:
+            print(f"No hay mapeo de Alpha Vantage para {key}. Usando datos simulados.")
+
+        # Formatear la salida para el frontend
+        commodities_list.append({
+            "key": key,
+            "name": commodity_info["name"],
+            "symbol": commodity_info["symbol"],
+            "icon_url": commodity_info["icon_url"],
+            "current_price": round(commodity_info["current_price"], 2),
+            "change": round(commodity_info["change"], 2),
+            "high": round(commodity_info["high"], 2),
+            "low": round(commodity_info["low"], 2)
+        })
     return jsonify(commodities_list)
 
 @app.route('/api/commodity/<string:commodity_key>', methods=['GET'])
 def get_commodity_details(commodity_key):
     """
     Retorna los detalles completos de una commodity específica, incluyendo historial y noticias.
+    Intenta actualizar el precio actual con Alpha Vantage.
     """
     commodity_data = commodities_db.get(commodity_key)
     if not commodity_data:
         return jsonify({"error": "Commodity no encontrada"}), 404
     
-    # En un escenario real, el historial y las noticias se filtrarían por la commodity_id
-    # Aquí, ya están pre-filtrados en la simulación.
-    return jsonify(commodity_data)
+    # Crear una copia para no modificar el original en commodities_db
+    details_to_return = commodity_data.copy()
+
+    # Intentar obtener el precio actual de Alpha Vantage para esta commodity
+    av_symbol = alpha_vantage_symbols.get(commodity_key)
+    if av_symbol:
+        realtime_data = get_alpha_vantage_quote(av_symbol)
+        if realtime_data:
+            details_to_return["current_price"] = realtime_data["current_price"]
+            details_to_return["change"] = realtime_data["change"]
+            details_to_return["change_amount"] = realtime_data["change_amount"]
+            details_to_return["high"] = realtime_data["high"]
+            details_to_return["low"] = realtime_data["low"]
+            print(f"Detalles de {commodity_key} actualizados con Alpha Vantage.")
+        else:
+            print(f"No se pudieron obtener datos de Alpha Vantage para los detalles de {commodity_key}. Usando datos simulados.")
+    else:
+        print(f"No hay mapeo de Alpha Vantage para los detalles de {commodity_key}. Usando datos simulados.")
+
+    # Redondear los valores numéricos para la respuesta
+    details_to_return["current_price"] = round(details_to_return["current_price"], 2)
+    details_to_return["change"] = round(details_to_return["change"], 2)
+    details_to_return["change_amount"] = round(details_to_return["change_amount"], 2)
+    details_to_return["high"] = round(details_to_return["high"], 2)
+    details_to_return["low"] = round(details_to_return["low"], 2)
+
+    return jsonify(details_to_return)
 
 # 2. API o simulador financiero
 @app.route('/api/simulate_investment', methods=['POST'])
