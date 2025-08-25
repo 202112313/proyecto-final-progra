@@ -7,37 +7,47 @@
         let priceChartInstanceHighcharts; 
         let comparisonChartInstanceHighcharts;
 
-        // --- Page Navigation Logic ---
-        function showPage(pageId, commodityKey = null) {
-            document.querySelectorAll('.page-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            document.getElementById(pageId).classList.add('active');
+       // --- Page Navigation Logic ---
+function showPage(pageId, commodityKey = null) {
+    document.querySelectorAll('.page-section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = "none"; // 🔴 Oculta todas
+    });
 
-            // Special handling for details page
-            if (pageId === 'details' && commodityKey) {
-                currentCommodity = commodityKey;
-                updateCommodityDetails(commodityKey);
-            } else if (pageId === 'details' && currentCommodity) {
-                // Si ya estamos en detalles y no se especifica una nueva commodity, recargar la actual
-                updateCommodityDetails(currentCommodity);
-            }
-            // Special handling for map page to re-initialize Leaflet
-            if (pageId === 'map') {
-                initializeMap();
-            } else if (productionMapInstance) {
-                // Invalidate size when map is hidden to prevent rendering issues
-                productionMapInstance.invalidateSize(true);
-            }
-            // Special handling for news page
-            if (pageId === 'news') {
-                fetchGeneralNews();
-            }
-            // Special handling for comparator page
-            if (pageId === 'comparator') {
-                populateComparisonSelects();
-            }
-        }
+    const target = document.getElementById(pageId);
+    target.classList.add('active');
+
+    // 🔎 Si es login o register → usar flex (centrado)
+    // 🔎 Si es otra página (home, details, comparator, map, news) → usar block
+    if (pageId === "login" || pageId === "register") {
+        target.style.display = "flex";
+    } else {
+        target.style.display = "block";
+    }
+
+    // --- Lógica especial según la página ---
+    if (pageId === 'details' && commodityKey) {
+        currentCommodity = commodityKey;
+        updateCommodityDetails(commodityKey);
+    } else if (pageId === 'details' && currentCommodity) {
+        updateCommodityDetails(currentCommodity);
+    }
+
+    if (pageId === 'map') {
+        initializeMap();
+    } else if (productionMapInstance) {
+        productionMapInstance.invalidateSize(true);
+    }
+
+    if (pageId === 'news') {
+        fetchGeneralNews();
+    }
+
+    if (pageId === 'comparator') {
+        populateComparisonSelects();
+    }
+}
+
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', function(event) {
                 event.preventDefault();
@@ -64,6 +74,57 @@
                 document.getElementById('commoditiesTableBody').innerHTML = `<tr><td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-red-500">Error al cargar datos. Intenta de nuevo más tarde.</td></tr>`;
             }
         }
+             // --- Autocomplete para el buscador ---
+            const searchInput = document.getElementById("searchInput");
+            const autocompleteList = document.getElementById("autocompleteList");
+
+            searchInput.addEventListener("input", () => {
+            const query = searchInput.value.toLowerCase();
+            autocompleteList.innerHTML = "";
+
+            if (!query) {
+            autocompleteList.classList.add("hidden");
+            return;
+           }
+
+         // Filtrar commodities por nombre o símbolo
+           const filtered = commoditiesData.filter(item =>
+         item.name.toLowerCase().includes(query) || 
+         item.symbol.toLowerCase().includes(query)
+          );
+ 
+           if (filtered.length === 0) {
+         autocompleteList.classList.add("hidden");
+         return;
+          }
+
+          // Mostrar sugerencias
+         filtered.forEach(item => {
+         const option = document.createElement("div");
+         option.className = "px-4 py-2 hover:bg-purple-600 cursor-pointer text-white";
+         option.textContent = `${item.name} (${item.symbol})`;
+        
+         // Acción al hacer clic en una sugerencia
+         option.addEventListener("click", () => {
+            searchInput.value = item.name;
+            autocompleteList.classList.add("hidden");
+
+            // 🔎 Si quieres mostrar detalles directamente
+            showPage("details", item.key);
+         });
+
+         autocompleteList.appendChild(option);
+         });
+
+         autocompleteList.classList.remove("hidden");
+         });
+
+          // Ocultar lista si el usuario hace clic fuera
+         document.addEventListener("click", (e) => {
+         if (!autocompleteList.contains(e.target) && e.target !== searchInput) {
+          autocompleteList.classList.add("hidden");
+          }
+          });
 
         // Función para renderizar la tabla de commodities
         function renderCommoditiesTable() {
@@ -110,7 +171,6 @@
                 });
             });
         }
-
         // Fetch featured news for the home page
         async function fetchFeaturedNews() {
             const featuredNewsContainer = document.getElementById('featuredNewsContainer');
@@ -629,6 +689,11 @@
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             const loginMessage = document.getElementById('loginMessage');
+         if (!email || !password) {
+         loginMessage.className = 'text-center text-red-500 text-sm mt-6';
+         loginMessage.textContent = 'Por favor, completa todos los campos.';
+         return;
+         }
 
             try {
                 const response = await fetch(`${API_BASE_URL}/login`, {
@@ -655,6 +720,7 @@
         });
 
         // --- Register Page Functions ---
+    
         document.getElementById('registerForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             const username = document.getElementById('registerUsername').value;
@@ -662,6 +728,18 @@
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             const registerMessage = document.getElementById('registerMessage');
+                if (!username || !email || !password || !confirmPassword) {
+         registerMessage.className = 'text-center text-red-500 text-sm mt-6';
+         registerMessage.textContent = 'Todos los campos son obligatorios.';
+         return;
+         }
+
+          if (password.length < 6) {
+         registerMessage.className = 'text-center text-red-500 text-sm mt-6';
+         registerMessage.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+         return;
+         }
+
 
             if (password !== confirmPassword) {
                 registerMessage.className = 'text-center text-red-500 text-sm mt-6';
@@ -699,3 +777,28 @@
             fetchFeaturedNews(); // Fetch and render featured news for the home page
             showPage('home'); // Show the home page by default
         });
+
+        // --- Botón Buscar ---
+      const searchBtn = document.getElementById("searchBtn");
+
+      searchBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const query = searchInput.value.toLowerCase().trim();
+
+      if (!query) {
+        alert("Por favor, escribe el nombre de una materia prima.");
+        return;
+      }
+
+       // Buscar coincidencia exacta (nombre o símbolo)
+      const match = commoditiesData.find(item =>
+        item.name.toLowerCase() === query || 
+        item.symbol.toLowerCase() === query
+      );
+
+      if (match) {
+        showPage("details", match.key);
+      } else {
+        alert("No se encontró la materia prima. Verifica el nombre.");
+      }
+});
