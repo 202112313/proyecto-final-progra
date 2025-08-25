@@ -6,13 +6,12 @@ import smtplib
 from email.mime.text import MIMEText
 from flask_cors import CORS 
 import mysql.connector
-import requests # Importar la librería requests
+import requests 
 
 app = Flask(__name__)
 CORS(app) 
 
 # --- Configuración de la Base de Datos MySQL ---
-# Asegúrate de que tu base de datos MySQL esté corriendo y las credenciales sean correctas.
 try:
     db = mysql.connector.connect(
         host="localhost",
@@ -24,24 +23,31 @@ try:
     print("Conexión a la base de datos MySQL exitosa.")
 except mysql.connector.Error as err:
     print(f"Error al conectar a la base de datos MySQL: {err}")
-    # Puedes decidir si la aplicación debe salir o continuar con funcionalidad limitada
     db = None
     cursor = None
          
 # --- Clave API de Alpha Vantage ---
-# ¡IMPORTANTE! Reemplaza 'YOUR_ALPHA_VANTAGE_API_KEY' con tu clave real.
 ALPHA_VANTAGE_API_KEY = "B6WLT43VEKA4J6RW"
 
 # Mapeo de tus claves de commodities a los símbolos de Alpha Vantage
 alpha_vantage_symbols = {
     "oro": "GOLD",
-    "petroleo": "WTI", # West Texas Intermediate, un crudo de referencia
-    "cobre": "COPPER", # Puede que Alpha Vantage no tenga un GLOBAL_QUOTE directo para COPPER.
-                        # Si falla, considera usar un ETF de cobre o una función diferente de AV.
-    "plata": "SILVER"
+    "petroleo": "WTI", 
+    "cobre": "COPPER",                 
+    "plata": "SILVER",
+    "niquel": "NICKEL",
+    "litio": "LITHIUM",
+    "carbon": "COAL",
+    "gasnatural": "NATGAS",
+    "hierro": "IRON",
+    "aluminio": "ALUMINUM",
+    "silicio": "SILICON",
+    "litio": "LITHIUM",
+    "cobalto": "COBALT",
+    "niquel": "NICKEL"
 }
 
-# --- Datos de commodities (simulados, se actualizarán con Alpha Vantage si es posible) ---
+# --- Datos de commodities (simulados)
 commodities_db = {
     "oro": {
         "id": 1,
@@ -138,8 +144,289 @@ commodities_db = {
             {"title": "La plata sigue al oro en su rally alcista", "source": "Kitco News", "time": "Hace 2 horas", "snippet": "El metal blanco se beneficia de la incertidumbre económica y la demanda industrial...", "url": "https://example.com/news/silver-rally"},
             {"title": "Innovaciones en paneles solares aumentan la demanda de plata", "source": "Solar Power World", "time": "Hace 7 horas", "snippet": "La eficiencia de las celdas solares depende en gran medida de la plata...", "url": "https://example.com/news/silver-solar"}
         ]
-    }
+    },
+    
+    "niquel": {
+        "id": 5,
+        "name": "Níquel",
+        "symbol": "NI",
+        "description": "Metal estratégico usado en baterías y acero inoxidable",
+        "icon_url": "https://placehold.co/40x40/blue/white?text=NI",
+        "current_price": 21.50,
+        "change": -0.3,
+        "change_amount": -0.06,
+        "high": 21.80,
+        "low": 21.40,
+        "history": {
+        '1D': [21.60, 21.55, 21.50, 21.45, 21.55, 21.50],
+        '1S': [21.00, 21.20, 21.30, 21.40, 21.60, 21.50],
+        '1M': [20.00, 20.50, 20.80, 21.20, 21.40, 21.50],
+        '3M': [19.50, 20.00, 20.50, 20.80, 21.20, 21.50],
+        '1A': [18.00, 19.00, 19.50, 20.50, 21.00, 21.50],
+        '5A': [15.00, 16.50, 17.50, 19.00, 20.50, 21.50]
+    },
+    "news": [
+        {"title": "La demanda de níquel crece por la producción de baterías", "source": "Reuters", "time": "Hace 3 horas", "snippet": "El auge de los autos eléctricos impulsa el mercado del níquel...", "url": "https://example.com/news/niquel-baterias"},
+        {"title": "Nuevas minas en Indonesia aumentarán la oferta de níquel", "source": "Bloomberg", "time": "Ayer", "snippet": "Se espera que Indonesia duplique su producción de níquel en los próximos años...", "url": "https://example.com/news/niquel-indonesia"}
+    ]
+},
+
+"litio": {
+    "id": 6,
+    "name": "Litio",
+    "symbol": "LI",
+    "description": "Elemento clave en la producción de baterías de ion-litio",
+    "icon_url": "https://placehold.co/40x40/green/white?text=LI",
+    "current_price": 73.20,
+    "change": 1.1,
+    "change_amount": 0.8,
+    "high": 74.50,
+    "low": 72.00,
+    "history": {
+        '1D': [72.50, 72.80, 73.00, 73.20, 73.50, 73.20],
+        '1S': [70.00, 71.20, 72.00, 73.00, 73.50, 73.20],
+        '1M': [68.00, 69.50, 71.00, 72.50, 73.00, 73.20],
+        '3M': [65.00, 67.00, 69.00, 71.50, 72.80, 73.20],
+        '1A': [55.00, 60.00, 65.00, 70.00, 72.00, 73.20],
+        '5A': [30.00, 40.00, 50.00, 60.00, 70.00, 73.20]
+    },
+    "news": [
+        {"title": "El litio se convierte en recurso estratégico", "source": "El País", "time": "Hoy", "snippet": "El auge de los autos eléctricos aumenta la demanda global de litio...", "url": "https://example.com/news/litio-estrategico"},
+        {"title": "Chile y Argentina lideran la producción de litio", "source": "Financial Times", "time": "Hace 2 días", "snippet": "Sudamérica concentra más del 60% de las reservas mundiales de litio...", "url": "https://example.com/news/litio-latam"}
+    ]
+},
+
+"carbon": {
+    "id": 7,
+    "name": "Carbón",
+    "symbol": "COAL",
+    "description": "Combustible fósil utilizado en generación eléctrica y acero",
+    "icon_url": "https://placehold.co/40x40/black/white?text=C",
+    "current_price": 145.80,
+    "change": -2.0,
+    "change_amount": -3.0,
+    "high": 150.00,
+    "low": 144.00,
+    "history": {
+        '1D': [148.00, 147.00, 146.50, 146.00, 145.80, 145.80],
+        '1S': [150.00, 149.00, 148.00, 147.50, 146.50, 145.80],
+        '1M': [160.00, 155.00, 150.00, 148.00, 146.00, 145.80],
+        '3M': [170.00, 165.00, 160.00, 155.00, 150.00, 145.80],
+        '1A': [180.00, 175.00, 170.00, 160.00, 150.00, 145.80],
+        '5A': [200.00, 190.00, 180.00, 170.00, 160.00, 145.80]
+    },
+    "news": [
+        {"title": "El carbón sigue siendo clave en Asia", "source": "BBC", "time": "Hoy", "snippet": "China e India siguen dependiendo del carbón para su matriz energética...", "url": "https://example.com/news/carbon-asia"},
+        {"title": "Europa reduce su consumo de carbón", "source": "DW", "time": "Ayer", "snippet": "Las políticas de transición energética buscan reemplazar el carbón...", "url": "https://example.com/news/carbon-europa"}
+    ]
+},
+
+"gasnatural": {
+    "id": 8,
+    "name": "Gas Natural",
+    "symbol": "NG",
+    "description": "Fuente de energía fósil usada en calefacción y electricidad",
+    "icon_url": "https://placehold.co/40x40/orange/white?text=NG",
+    "current_price": 3.25,
+    "change": 0.2,
+    "change_amount": 0.07,
+    "high": 3.40,
+    "low": 3.20,
+    "history": {
+        '1D': [3.20, 3.22, 3.24, 3.26, 3.30, 3.25],
+        '1S': [3.00, 3.05, 3.10, 3.20, 3.28, 3.25],
+        '1M': [2.80, 2.90, 3.00, 3.10, 3.20, 3.25],
+        '3M': [2.50, 2.70, 2.90, 3.10, 3.20, 3.25],
+        '1A': [2.00, 2.20, 2.50, 2.80, 3.00, 3.25],
+        '5A': [1.50, 2.00, 2.50, 2.80, 3.10, 3.25]
+    },
+    "news": [
+        {"title": "El precio del gas natural sube en invierno", "source": "Reuters", "time": "Hoy", "snippet": "La demanda de calefacción en el hemisferio norte aumenta el precio del gas...", "url": "https://example.com/news/gas-invierno"},
+        {"title": "Nuevos yacimientos de gas en el Mediterráneo", "source": "Bloomberg", "time": "Hace 3 días", "snippet": "Descubrimientos recientes aumentan las reservas disponibles de gas natural...", "url": "https://example.com/news/gas-mediterraneo"}
+    ]
+},
+"hierro": {
+    "id": 5,
+    "name": "Hierro",
+    "symbol": "FE",
+    "description": "Metal base esencial para la producción de acero en construcción e infraestructura",
+    "icon_url": "https://placehold.co/40x40/gray/white?text=FE",
+    "current_price": 120.50,
+    "change": 0.8,
+    "change_amount": 1.0,
+    "high": 122.00,
+    "low": 119.00,
+    "history": {
+        "1D": [120.0, 120.5, 121.0, 121.5, 121.0, 120.5],
+        "1S": [118.0, 119.0, 119.5, 120.0, 121.0, 120.5],
+        "1M": [110.0, 113.0, 115.0, 118.0, 120.0, 120.5],
+        "3M": [105.0, 108.0, 112.0, 115.0, 118.0, 120.5],
+        "1A": [90.0, 95.0, 100.0, 110.0, 115.0, 120.5],
+        "5A": [70.0, 80.0, 90.0, 100.0, 110.0, 120.5]
+    },
+    "news": [
+        {
+            "title": "El hierro impulsa el sector de la construcción",
+            "source": "Reuters",
+            "time": "Hoy",
+            "snippet": "El hierro sigue siendo clave en proyectos de infraestructura globales...",
+            "url": "https://example.com/news/hierro-construccion"
+        }
+    ]
+},
+
+"aluminio": {
+    "id": 6,
+    "name": "Aluminio",
+    "symbol": "AL",
+    "description": "Metal ligero utilizado en construcción, transporte y empaques",
+    "icon_url": "https://placehold.co/40x40/silver/black?text=AL",
+    "current_price": 2450.0,
+    "change": -0.5,
+    "change_amount": -12.0,
+    "high": 2500.0,
+    "low": 2440.0,
+    "history": {
+        "1D": [2460, 2455, 2450, 2445, 2455, 2450],
+        "1S": [2400, 2420, 2440, 2460, 2470, 2450],
+        "1M": [2300, 2350, 2380, 2420, 2440, 2450],
+        "3M": [2200, 2250, 2300, 2380, 2420, 2450],
+        "1A": [2000, 2100, 2200, 2300, 2400, 2450],
+        "5A": [1500, 1700, 1900, 2100, 2300, 2450]
+    },
+    "news": [
+        {
+            "title": "El aluminio gana protagonismo en la construcción verde",
+            "source": "Bloomberg",
+            "time": "Ayer",
+            "snippet": "El aluminio reciclado reduce la huella de carbono en nuevas edificaciones...",
+            "url": "https://example.com/news/aluminio-verde"
+        }
+    ]
+},
+
+"silicio": {
+    "id": 7,
+    "name": "Silicio",
+    "symbol": "SI",
+    "description": "Elemento fundamental en la fabricación de paneles solares y semiconductores",
+    "icon_url": "https://placehold.co/40x40/orange/white?text=SI",
+    "current_price": 1500.0,
+    "change": 2.0,
+    "change_amount": 30.0,
+    "high": 1520.0,
+    "low": 1470.0,
+    "history": {
+        "1D": [1480, 1490, 1500, 1510, 1520, 1500],
+        "1S": [1400, 1430, 1460, 1480, 1500, 1500],
+        "1M": [1300, 1350, 1400, 1450, 1480, 1500],
+        "3M": [1200, 1250, 1300, 1400, 1450, 1500],
+        "1A": [1000, 1100, 1200, 1300, 1400, 1500],
+        "5A": [700, 850, 1000, 1200, 1400, 1500]
+    },
+    "news": [
+        {
+            "title": "El silicio impulsa la revolución solar",
+            "source": "TechCrunch",
+            "time": "Hace 3 días",
+            "snippet": "Los precios del silicio suben por la alta demanda de paneles solares y chips...",
+            "url": "https://example.com/news/silicio-solar"
+        }
+    ]
+},
+
+"litio": {
+    "id": 8,
+    "name": "Litio",
+    "symbol": "LI",
+    "description": "Elemento clave en la producción de baterías de ion-litio",
+    "icon_url": "https://placehold.co/40x40/green/white?text=LI",
+    "current_price": 73.20,
+    "change": 1.1,
+    "change_amount": 0.8,
+    "high": 74.50,
+    "low": 72.00,
+    "history": {
+        "1D": [72.50, 72.80, 73.00, 73.20, 73.50, 73.20],
+        "1S": [70.00, 71.20, 72.00, 73.00, 73.50, 73.20],
+        "1M": [68.00, 69.50, 71.00, 72.50, 73.00, 73.20],
+        "3M": [65.00, 67.00, 69.00, 71.50, 72.80, 73.20],
+        "1A": [55.00, 60.00, 65.00, 70.00, 72.00, 73.20],
+        "5A": [30.00, 40.00, 50.00, 60.00, 70.00, 73.20]
+    },
+    "news": [
+        {
+            "title": "El litio se convierte en recurso estratégico",
+            "source": "El País",
+            "time": "Hoy",
+            "snippet": "El auge de los autos eléctricos aumenta la demanda global de litio...",
+            "url": "https://example.com/news/litio-estrategico"
+        }
+    ]
+},
+
+"cobalto": {
+    "id": 9,
+    "name": "Cobalto",
+    "symbol": "CO",
+    "description": "Mineral usado en baterías, superaleaciones y tecnología médica",
+    "icon_url": "https://placehold.co/40x40/blue/white?text=CO",
+    "current_price": 45.80,
+    "change": -0.5,
+    "change_amount": -0.2,
+    "high": 46.20,
+    "low": 45.50,
+    "history": {
+        "1D": [46.0, 45.9, 45.8, 45.7, 45.9, 45.8],
+        "1S": [44.5, 45.0, 45.5, 46.0, 46.2, 45.8],
+        "1M": [42.0, 43.0, 44.0, 45.0, 45.5, 45.8],
+        "3M": [38.0, 40.0, 42.0, 44.0, 45.0, 45.8],
+        "1A": [30.0, 34.0, 38.0, 42.0, 45.0, 45.8],
+        "5A": [20.0, 25.0, 30.0, 35.0, 40.0, 45.8]
+    },
+    "news": [
+        {
+            "title": "El cobalto sigue siendo crítico en la industria de baterías",
+            "source": "Financial Times",
+            "time": "Ayer",
+            "snippet": "El suministro de cobalto depende en gran parte de África central...",
+            "url": "https://example.com/news/cobalto-baterias"
+        }
+    ]
+},
+
+"niquel": {
+    "id": 10,
+    "name": "Níquel",
+    "symbol": "NI",
+    "description": "Metal estratégico usado en baterías y acero inoxidable",
+    "icon_url": "https://placehold.co/40x40/blue/white?text=NI",
+    "current_price": 21.50,
+    "change": -0.3,
+    "change_amount": -0.06,
+    "high": 21.80,
+    "low": 21.40,
+    "history": {
+        "1D": [21.60, 21.55, 21.50, 21.45, 21.55, 21.50],
+        "1S": [21.00, 21.20, 21.30, 21.40, 21.60, 21.50],
+        "1M": [20.00, 20.50, 20.80, 21.20, 21.40, 21.50],
+        "3M": [19.50, 20.00, 20.50, 20.80, 21.20, 21.50],
+        "1A": [18.00, 19.00, 19.50, 20.50, 21.00, 21.50],
+        "5A": [15.00, 16.50, 17.50, 19.00, 20.50, 21.50]
+    },
+    "news": [
+        {
+            "title": "La demanda de níquel crece por la producción de baterías",
+            "source": "Reuters",
+            "time": "Hace 3 horas",
+            "snippet": "El auge de los autos eléctricos impulsa el mercado del níquel...",
+            "url": "https://example.com/news/niquel-baterias"
+        }
+    ]
 }
+
+}
+
 
 # Datos de noticias generales (simulados)
 general_news_db = [
