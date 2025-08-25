@@ -802,3 +802,40 @@ function showPage(pageId, commodityKey = null) {
         alert("No se encontró la materia prima. Verifica el nombre.");
       }
 });
+// --- Registro de usuario ---
+document.getElementById("registerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("registerUsername").value;
+    const email = document.getElementById("registerEmail").value;
+    const password = document.getElementById("registerPassword").value;
+
+    const response = await fetch("/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password })
+    });
+
+    const result = await response.json();
+    alert(result.message || result.error);
+});
+
+// --- Inicio de sesión ---
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("loginEmail").value;
+    const password = document.getElementById("loginPassword").value;
+
+    const response = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+    });
+
+    const result = await response.json();
+    if (response.ok) {
+        alert(`Bienvenido, ${result.username}`);
+    } else {
+        alert(result.error);
+    }
+});
+
