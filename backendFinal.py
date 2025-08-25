@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 from flask_cors import CORS 
 import mysql.connector
 import requests 
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app) 
@@ -780,3 +781,68 @@ def login_user():
 # --- Ejecutar la aplicación Flask ---
 if __name__ == '__main__':
     app.run(debug=True, port=5000) # Ejecutar en el puerto 5000
+    
+app = Flask(__name__)
+
+db_config = {
+    "host": "localhost",     
+    "user": "root",          # cámbialo si tu usuario es otro
+    "password": "tu_password",  
+    "database": "minerales_db"
+}
+
+def get_db_connection():
+    return mysql.connector.connect(**db_config)
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not username or not email or not password:
+        return jsonify({"error": "Todos los campos son obligatorios"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        hashed_password = generate_password_hash(password)
+        cursor.execute(
+            "INSERT INTO usuarios (username, email, password) VALUES (%s, %s, %s)",
+            (username, email, hashed_password)
+        )
+        conn.commit()
+        return jsonify({"message": "Usuario registrado con éxito"}), 201
+
+    except mysql.connector.IntegrityError:
+        return jsonify({"error": "El usuario o correo ya existe"}), 409
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({"error": "Correo y contraseña son obligatorios"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+    user = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if user and check_password_hash(user["password"], password):
+        return jsonify({"message": "Inicio de sesión exitoso", "username": user["username"]}), 200
+    else:
+        return jsonify({"error": "Credenciales inválidas"}), 401
+
